@@ -1,0 +1,204 @@
+diff --git a/flash_rt/core/utils/actions.py b/flash_rt/core/utils/actions.py
+index cb9abdc..b6a485e 100644
+--- a/flash_rt/core/utils/actions.py
++++ b/flash_rt/core/utils/actions.py
+@@ -5,15 +5,34 @@ import numpy as np
+ LIBERO_ACTION_DIM = 7
+ 
+ 
+-def unnormalize_actions(actions, norm_stats):
+-    """Unnormalize actions using q01/q99 statistics (pure numpy)."""
+-    q01 = np.array(norm_stats["actions"]["q01"], dtype=np.float32)
+-    q99 = np.array(norm_stats["actions"]["q99"], dtype=np.float32)
+-    dim = min(actions.shape[-1], len(q01))
+-    clipped = np.clip(actions, -1.0, 1.0)
+-    unnorm = clipped.copy()
++def unnormalize_actions(actions, norm_stats, use_quantile=True):
++    """Unnormalize actions using norm_stats.
++
++    Defaults to the openpi q01/q99 quantile mapping. When ``use_quantile`` is
++    False (and the norm_stats carry ``mean``/``std``), uses the linear
++    ``x * std + mean`` mapping that openpi's ``Unnormalize`` applies at
++    inference time. For policies whose actions were normalized as *deltas*
++    against a quantile range that does not match the action distribution
++    (e.g. RoboDojo bimanual pi0.5 with DeltaActions), use_quantile=False is
++    required to reproduce openpi bit-for-bit.
++    """
++    s = norm_stats["actions"]
++    dim = min(actions.shape[-1], len(s["q01"]))
++    if not use_quantile and "std" in s and "mean" in s:
++        mean = np.array(s["mean"], dtype=np.float32)
++        std = np.array(s["std"], dtype=np.float32)
++        unnorm = actions.copy().astype(np.float32)
++        unnorm[..., :dim] = unnorm[..., :dim] * (std[:dim] + 1e-6) + mean[:dim]
++        return unnorm
++    q01 = np.array(s["q01"], dtype=np.float32)
++    q99 = np.array(s["q99"], dtype=np.float32)
++    # IMPORTANT: no clip to [-1,1] — openpi's _unnormalize_quantile does not
++    # clip, and flow-matching intermediate values can exceed [-1,1]. Clipping
++    # truncates large-magnitude action dims (e.g. one arm) and desynchronizes
++    # bimanual outputs vs openpi.
++    unnorm = actions.copy().astype(np.float32)
+     unnorm[..., :dim] = (
+-        (clipped[..., :dim] + 1.0) / 2.0 * (q99[:dim] - q01[:dim] + 1e-6)
++        (actions[..., :dim] + 1.0) / 2.0 * (q99[:dim] - q01[:dim] + 1e-6)
+         + q01[:dim]
+     )
+     return unnorm
+diff --git a/flash_rt/frontends/jax/pi05_thor.py b/flash_rt/frontends/jax/pi05_thor.py
+index 7a4cad5..3a549b0 100644
+--- a/flash_rt/frontends/jax/pi05_thor.py
++++ b/flash_rt/frontends/jax/pi05_thor.py
+@@ -66,7 +66,7 @@ class Pi05JaxFrontendThor:
+                  use_cuda_graph=True, num_views=2, autotune=3,
+                  weight_cache=True, use_fp8=True,
+                  state_prompt_mode: str = "exact",
+-                 state_prompt_fixed_max_len=None, **kwargs):
++                 state_prompt_fixed_max_len=None, action_dim=None, **kwargs):
+         """
+         Args:
+             autotune: CUDA Graph autotune trials per set_prompt().
+@@ -75,7 +75,12 @@ class Pi05JaxFrontendThor:
+                 Reduces JAX cold start from ~42s to ~5s on subsequent loads.
+                 Only affects JAX (Orbax is slow to load; safetensors is already fast).
+                 Set False to force re-quantize (e.g., after fine-tuning).
++            action_dim: robot action dimensionality to slice after unnormalize.
++                Defaults to the LIBERO action dim (7); pass 14 for bimanual
++                ARX-X5 setups (e.g. GOAI/RoboDojo dual-arm tasks).
+         """
++        from flash_rt.core.utils.actions import LIBERO_ACTION_DIM
++        self.action_dim = int(action_dim) if action_dim is not None else LIBERO_ACTION_DIM
+         from flash_rt.core.cuda_buffer import CudaBuffer, sync
+         from flash_rt.core.weights.transformer import quantize_fp8_e4m3, compute_time_embeddings
+         self._CudaBuffer = CudaBuffer
+@@ -121,6 +126,19 @@ class Pi05JaxFrontendThor:
+             checkpoint_dir=checkpoint_dir,
+             strict=False,
+         )
++        # openpi normalizes actions with mean/std (Unnormalize) rather than the
++        # q01/q99 quantile mapping. When the stats carry mean+std, prefer the
++        # linear mapping to match openpi inference (critical for delta-action
++        # policies such as RoboDojo bimanual pi0.5).
++        self._use_quantile_unnorm = not (
++            self.norm_stats is not None
++            and "std" in self.norm_stats.get("actions", {})
++            and "mean" in self.norm_stats.get("actions", {})
++        )
++        self._actions_use_mean_std = self.norm_stats is not None and (
++            "std" in self.norm_stats.get("actions", {})
++            and "mean" in self.norm_stats.get("actions", {})
++        )
+ 
+         # ── FvkContext + GemmRunner + FMHA ──
+         from flash_rt import flash_rt_kernels as _fvk
+@@ -1944,8 +1962,8 @@ class Pi05JaxFrontendThor:
+         for b in range(self.B):
+             raw = out_np[b * Sa : (b + 1) * Sa]
+             if self.norm_stats:
+-                unnorm = unnormalize_actions(raw, self.norm_stats)
+-                results.append({"actions": unnorm[:, :LIBERO_ACTION_DIM]})
++                unnorm = unnormalize_actions(raw, self.norm_stats, use_quantile=self._use_quantile_unnorm)
++                results.append({"actions": unnorm[:, :self.action_dim]})
+             else:
+                 results.append({"actions": raw})
+         return results
+@@ -2358,8 +2376,8 @@ class Pi05JaxFrontendThor:
+                 "JAX CFG infer: %.1f ms (beta=%.2f, batched=%s)",
+                 latency_ms, self._cfg_pipeline.cfg_beta, self._batched)
+         if self.norm_stats:
+-            unnorm = unnormalize_actions(raw_actions, self.norm_stats)
+-            robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
++            unnorm = unnormalize_actions(raw_actions, self.norm_stats, use_quantile=self._use_quantile_unnorm)
++            robot_actions = unnorm[:, :self.action_dim]
+         else:
+             robot_actions = raw_actions
+         return {"actions": robot_actions}
+@@ -2756,8 +2774,8 @@ class Pi05JaxFrontendThor:
+ 
+         if self.norm_stats:
+             from flash_rt.core.utils.actions import unnormalize_actions, LIBERO_ACTION_DIM
+-            unnorm = unnormalize_actions(raw_actions, self.norm_stats)
+-            robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
++            unnorm = unnormalize_actions(raw_actions, self.norm_stats, use_quantile=self._use_quantile_unnorm)
++            robot_actions = unnorm[:, :self.action_dim]
+         else:
+             robot_actions = raw_actions
+ 
+diff --git a/flash_rt/frontends/torch/pi05_thor.py b/flash_rt/frontends/torch/pi05_thor.py
+index e267f5d..d7171fe 100644
+--- a/flash_rt/frontends/torch/pi05_thor.py
++++ b/flash_rt/frontends/torch/pi05_thor.py
+@@ -130,13 +130,19 @@ class Pi05TorchFrontendThor:
+                  use_cuda_graph: bool = True, autotune: int = 3,
+                  use_fp8: bool = True, state_prompt_mode: str = "exact",
+                  state_prompt_fixed_max_len: Optional[int] = None,
+-                 use_fa4: bool = False):
++                 use_fa4: bool = False,
++                 action_dim: Optional[int] = None):
+         """
+         Args:
+             autotune: CUDA Graph autotune trials per set_prompt().
+                 0 = off, 3 = default (fast), 5+ = thorough.
+                 Torch usually finds fast graph on trial 0-1.
++            action_dim: robot action dimensionality to slice after
++                unnormalize. Defaults to the LIBERO action dim (7);
++                pass 14 for bimanual ARX-X5 (GOAI/RoboDojo).
+         """
++        from flash_rt.core.utils.actions import LIBERO_ACTION_DIM as _LAD
++        self.action_dim = int(action_dim) if action_dim is not None else _LAD
+         checkpoint_dir = pathlib.Path(checkpoint_dir)
+         _spm = os.environ.get("FLASHRT_PI05_STATE_PROMPT_MODE", state_prompt_mode)
+         if _spm not in ("fixed", "exact"):
+@@ -264,6 +270,15 @@ class Pi05TorchFrontendThor:
+             ])
+         self.norm_stats = load_norm_stats(
+             candidates, checkpoint_dir=checkpoint_dir)
++        # Match openpi inference: when the stats carry mean+std (RoboDojo
++        # bimanual DeltaActions), unnormalize with the linear mean/std
++        # mapping rather than q01/q99.
++        _ns = self.norm_stats
++        self._use_quantile_unnorm = not (
++            _ns is not None
++            and "std" in _ns.get("actions", {})
++            and "mean" in _ns.get("actions", {})
++        )
+ 
+     # -----------------------------------------------------------------------
+     # Weight loading
+@@ -993,8 +1008,9 @@ class Pi05TorchFrontendThor:
+         latency_ms = (time.perf_counter() - t0) * 1000
+         self.latency_records.append(latency_ms)
+ 
+-        unnorm = unnormalize_actions(raw_actions, self.norm_stats)
+-        robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
++        unnorm = unnormalize_actions(raw_actions, self.norm_stats,
++                                     use_quantile=self._use_quantile_unnorm)
++        robot_actions = unnorm[:, :self.action_dim]
+         if debug:
+             logger.info(
+                 "CFG raw[0,:5]: %s, latency: %.1f ms (beta=%.2f)",
+@@ -2480,9 +2496,10 @@ class Pi05TorchFrontendThor:
+         for b in range(self.B):
+             raw = self._g_noise_b2[b * self.Sa : (b + 1) * self.Sa
+                                     ].float().cpu().numpy()
+-            unnorm = unnormalize_actions(raw, self.norm_stats)
++            unnorm = unnormalize_actions(raw, self.norm_stats,
++                                         use_quantile=self._use_quantile_unnorm)
+             results.append(
+-                {"actions": unnorm[:, :LIBERO_ACTION_DIM]})
++                {"actions": unnorm[:, :self.action_dim]})
+         return results
+ 
+     # -----------------------------------------------------------------------
+@@ -2634,8 +2651,9 @@ class Pi05TorchFrontendThor:
+ 
+         # ---- Post-process ----
+         raw_actions = self._g_noise.float().cpu().numpy()
+-        unnorm = unnormalize_actions(raw_actions, self.norm_stats)
+-        robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
++        unnorm = unnormalize_actions(raw_actions, self.norm_stats,
++                                     use_quantile=self._use_quantile_unnorm)
++        robot_actions = unnorm[:, :self.action_dim]
+ 
+         if debug:
+             logger.info("Raw actions[0,:5]: %s", raw_actions[0, :5])

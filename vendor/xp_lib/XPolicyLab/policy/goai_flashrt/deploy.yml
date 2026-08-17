@@ -1,0 +1,17 @@
+# GOAI FlashRT — XPolicyLab policy 配置
+# 注: 实际启动由 server/run_server.py 的 CLI 参数控制（--model/--framework/--quantization）。
+#     本文件供 XPolicyLab 客户端参考，字段与 robodojo.sh client 的 --policy-name 对应。
+policy_name: goai_flashrt
+protocol: ws
+host: 0.0.0.0
+port: 3001
+action_type: joint
+# 权重由 server 启动时解析：--model pi05-arx-x5 --ckpt-dir /data/ckpts
+# 或显式 --checkpoint <path>（orbax 目录 / safetensors 目录）
+num_views: 3
+action_dim: 14
+framework: jax
+quantization: fp8
+use_fp8: true
+weight_cache: false
+use_cuda_graph: false

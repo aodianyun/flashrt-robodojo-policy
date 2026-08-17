@@ -1,0 +1,36 @@
+# GOAI FlashRT — 依赖说明
+#
+# 本项目使用独立 venv 管理依赖（jax 和 torch 互不影响）：
+#   - JAX 推理:  bash vendor/venv-jax/install_jax_venv.sh
+#   - Torch 推理: bash vendor/venv-torch/install_torch_venv.sh
+#
+# 本文件仅为版本清单，不做直接 pip install（环境隔离由 venv 脚本保证）。
+
+# ── JAX venv (vendor/venv-jax) ──
+jax==0.11.0
+jax-cuda13-pjrt==0.11.0
+jax-cuda13-plugin==0.11.0
+ml-dtypes==0.5.4
+orbax-checkpoint==0.12.2
+flax==0.12.8
+numpy==2.5.1
+# WS server + 运行时
+websockets
+msgpack
+msgpack-numpy
+pyyaml
+sentencepiece
+pillow
+
+# ── Torch venv (vendor/venv-torch) ──
+# torch (cu124)  # 见 install_torch_venv.sh
+# safetensors
+# transformers<4.56
+# pillow pyarrow pandas sentencepiece
+
+# ── FlashRT ──
+# vendor/FlashRT/ 源码 + 编译 .so（同架构免编译；不同架构见 vendor/FlashRT/README.md）
+
+# ── 模型权重 ──
+# bash scripts/download_checkpoint.sh <model> <ckpt_dir>
+# huggingface-hub[hf-transfer]
