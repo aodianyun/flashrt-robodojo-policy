@@ -13,7 +13,6 @@ RoboDojo 评估器提供实时动作，支持叠碗（stack_bowls）、叠衣服
 - **自包含**：FlashRT 源码 + 编译内核 + tokenizer 全部随项目携带，拉取即用
 - **权重自动管理**：`<ckpt-dir>/<model>/` 规范目录，缺失自动下载
 - **全 CLI 参数**：框架/量化/权重/端口全部命令行控制，环境变量仅用于系统层
-- **已实测**：stack_bowls 叠碗 ✅、fold_clothes 叠衣服（FP8: 叠碗 5/10、叠衣服 4/10）
 
 ## 🔗 相关项目
 
@@ -109,13 +108,6 @@ flashrt-robodojo-policy/
 5. **固定 state prompt**：`FLASHRT_PI05_STATE_PROMPT_MODE=fixed` 已默认，避免 CUDA Graph 重捕漂移
 6. **量化切换需重启**：权重在初始化时加载，运行时不可切换
 7. 环境变量仅用于系统层（XLA 内存、tokenizer 路径），业务参数一律 CLI
-
-## 📊 评测结果
-
-| 任务 | FP8 | NVFP4+AWQ |
-|---|---|---|
-| stack_bowls（叠碗） | 5/10 | 相近 |
-| fold_clothes（叠衣服） | 4/10 | 相近 |
 
 ## 📄 License
 
