@@ -27,8 +27,9 @@ python -m pip install \
     flax==0.12.8 \
     numpy==2.5.1
 
-# WS server 依赖
-python -m pip install websockets msgpack msgpack-numpy pyyaml sentencepiece pillow
+# WS server 依赖 (含 XPolicyLab client/server 的 pydantic/opencv/h5py)
+python -m pip install websockets msgpack msgpack-numpy pyyaml sentencepiece pillow \
+    pydantic opencv-python-headless h5py
 
 echo "== 验证 =="
 python - <<'PY'

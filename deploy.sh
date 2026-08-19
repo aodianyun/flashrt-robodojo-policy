@@ -4,10 +4,12 @@
 # 用法:
 #   bash deploy.sh [--framework jax|torch] [--venv PATH] \
 #                  [--model NAME] [--ckpt-dir DIR] [--checkpoint PATH] \
-#                  [--quantization fp8|fp4|fp4-awq|bf16] [--port N] [--download]
+#                  [--quantization fp8|fp4|fp4-awq|bf16] [--port N] [--download] \
+#                  [--hardware auto|thor|rtx_sm120|rtx_sm89]
 #
 # 默认: framework=jax, venv=<project>/vendor/venv-jax/.venv,
-#       model=pi05-arx-x5, ckpt-dir=/data/ckpts, quantization=fp8, port=3001
+#       model=pi05-arx-x5, ckpt-dir=/data/ckpts, quantization=fp8, port=3001,
+#       hardware=auto (自动检测 GPU)
 #
 # 权重: 从 <ckpt-dir>/<model>/ 自动解析；加 --download 缺失时自动下载
 #
@@ -30,6 +32,7 @@ CKPT_DIR="/data/ckpts"
 DOWNLOAD="0"
 QUANT="fp8"
 PORT="3001"
+HARDWARE="auto"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,10 +44,12 @@ while [[ $# -gt 0 ]]; do
     --download)     DOWNLOAD="1"; shift ;;
     --quantization) QUANT="$2"; shift 2 ;;
     --port)         PORT="$2"; shift 2 ;;
+    --hardware)     HARDWARE="$2"; shift 2 ;;
     -h|--help)
       echo "Usage: $0 [--framework jax|torch] [--venv PATH]"
       echo "          [--model NAME] [--ckpt-dir DIR] [--checkpoint PATH]"
       echo "          [--quantization fp8|fp4|fp4-awq|bf16] [--port N] [--download]"
+      echo "          [--hardware auto|thor|rtx_sm120|rtx_sm89]"
       exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -53,6 +58,7 @@ done
 echo "==== GOAI FlashRT 部署 ===="
 echo "  framework:    ${FRAMEWORK}"
 echo "  quantization: ${QUANT}"
+echo "  hardware:     ${HARDWARE}"
 if [ -n "${CHECKPOINT}" ]; then
   echo "  checkpoint:   ${CHECKPOINT}"
 else
@@ -141,7 +147,8 @@ env \
     --checkpoint "${CHECKPOINT}" \
     --port "${PORT}" \
     --framework "${FRAMEWORK}" \
-    --quantization "${QUANT}"
+    --quantization "${QUANT}" \
+    --hardware "${HARDWARE}"
 
 echo ""
 echo "==== 部署完成 ===="

@@ -451,10 +451,19 @@ class Pi05JaxFrontendRtx(Pi05TorchFrontendRtx):
         use_fp8: bool = True,
         hardware: Optional[str] = None,
         fp8_layout: Optional[str] = None,
+        action_dim: Optional[int] = None,
+        state_prompt_mode: str = "fixed",
     ):
         # Don't chain to Pi05TorchFrontendRtx.__init__ — it expects a safetensors
         # file. We replicate the body and swap the loader.
         checkpoint_dir = pathlib.Path(checkpoint_dir)
+        from flash_rt.core.utils.actions import LIBERO_ACTION_DIM as _LIBERO_ACTION_DIM
+        self.action_dim = int(action_dim) if action_dim is not None else _LIBERO_ACTION_DIM
+        _spm = os.environ.get("FLASHRT_PI05_STATE_PROMPT_MODE", state_prompt_mode)
+        if _spm not in ("fixed", "exact"):
+            raise ValueError(
+                f"state_prompt_mode must be 'fixed' or 'exact', got {_spm!r}")
+        self._state_prompt_mode = _spm
         self.num_views = int(num_views)
         self.chunk_size = int(chunk_size)
         self.max_prompt_len = int(max_prompt_len)
@@ -486,6 +495,8 @@ class Pi05JaxFrontendRtx(Pi05TorchFrontendRtx):
         self.graph_recorded = False
         self.current_prompt_len = 0
         self.pipeline = None
+        self._prompt_pipeline_cache: dict = {}
+        self._fixed_pipeline = None
 
         # RL CFG state — kept in sync with the torch frontend so the JAX
         # path goes through the same set_prompt / infer hot path. Both

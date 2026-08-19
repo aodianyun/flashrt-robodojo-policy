@@ -54,7 +54,7 @@ fi
 echo "== 安装 numpy 1.x + 运行时依赖 =="
 pip install -i https://mirrors.aliyun.com/pypi/simple/ \
   "numpy==1.26.4" ml_dtypes safetensors pillow pyyaml msgpack msgpack-numpy \
-  websockets sentencepiece --timeout 120
+  websockets sentencepiece pydantic opencv-python-headless h5py --timeout 120
 
 # 4. 验证
 echo "== 验证 =="

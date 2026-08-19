@@ -10,12 +10,14 @@ vendor/venv-torch/.venv/
 
 # Compiled kernels — platform/arch specific, rebuild on target (see vendor/FlashRT/README.md)
 # NOTE: the aarch64/Py3.12 runtime kernels ARE committed (self-contained clone).
-# Other compiled artifacts stay ignored.
+# x86_64 flash_rt_kernels.so (~17MB) is committed; flash_rt_fa2.so (~350MB)
+# exceeds GitHub's 100MB file limit so it stays local-only (rebuild on target).
 *.so
 *.so.*
 !vendor/FlashRT/flash_rt/flash_rt_kernels*.so
 !vendor/FlashRT/flash_rt/flash_rt_fp4*.so
 !vendor/FlashRT/flash_rt/libfmha_fp16_strided.so
+vendor/FlashRT/flash_rt/aarch64_backup/
 
 # Model weights (large, download via scripts/download_checkpoint.sh)
 ckpt/

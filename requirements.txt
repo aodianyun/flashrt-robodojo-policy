@@ -21,6 +21,9 @@ msgpack-numpy
 pyyaml
 sentencepiece
 pillow
+pydantic
+opencv-python-headless
+h5py
 
 # ── Torch venv (vendor/venv-torch) ──
 # torch (cu124)  # 见 install_torch_venv.sh

@@ -7,6 +7,7 @@
 # 用法:
 #   bash server/start_server.sh [--checkpoint PATH] [--model NAME] [--ckpt-dir DIR] \
 #       [--framework jax|torch] [--quantization fp8|fp4|fp4-awq|bf16] \
+#       [--hardware auto|thor|rtx_sm120|rtx_sm89] \
 #       [--host 0.0.0.0] [--port N] [--num-views 3] [--action-dim 14] \
 #       [--download-missing]
 #
@@ -33,6 +34,7 @@ FRAMEWORK="jax"
 QUANT="fp8"
 NUM_VIEWS="3"
 ACTION_DIM="14"
+HARDWARE="auto"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -46,9 +48,11 @@ while [[ $# -gt 0 ]]; do
     --quantization)     QUANT="$2"; shift 2 ;;
     --num-views)        NUM_VIEWS="$2"; shift 2 ;;
     --action-dim)       ACTION_DIM="$2"; shift 2 ;;
+    --hardware)         HARDWARE="$2"; shift 2 ;;
     -h|--help)
       echo "Usage: $0 [--checkpoint PATH] [--model NAME] [--ckpt-dir DIR]"
       echo "          [--framework jax|torch] [--quantization fp8|fp4|fp4-awq|bf16]"
+      echo "          [--hardware auto|thor|rtx_sm120|rtx_sm89]"
       echo "          [--host IP] [--port N] [--num-views N] [--action-dim N] [--download-missing]"
       exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
@@ -103,7 +107,7 @@ else
   echo "  model:      ${MODEL}   ckpt-dir: ${CKPT_DIR}"
   [ -n "${DOWNLOAD_MISSING}" ] && echo "  download:   auto (missing weights)"
 fi
-echo "  framework:  ${FRAMEWORK}   quantization: ${QUANT}"
+echo "  framework:  ${FRAMEWORK}   quantization: ${QUANT}   hardware: ${HARDWARE}"
 echo "  host:port:  ${HOST}:${PORT}   num_views: ${NUM_VIEWS}   action_dim: ${ACTION_DIM}"
 echo "  FlashRT:    ${PROJECT_ROOT}/vendor/FlashRT"
 echo "  fixed mode: ${FLASHRT_PI05_STATE_PROMPT_MODE}"
@@ -111,7 +115,8 @@ echo "  fixed mode: ${FLASHRT_PI05_STATE_PROMPT_MODE}"
 # Start fully detached
 # 权重解析: 显式 checkpoint 或 <ckpt-dir>/<model>/
 ARGS=(--port "${PORT}" --host "${HOST}" --framework "${FRAMEWORK}"
-      --quantization "${QUANT}" --num-views "${NUM_VIEWS}" --action-dim "${ACTION_DIM}")
+      --quantization "${QUANT}" --num-views "${NUM_VIEWS}" --action-dim "${ACTION_DIM}"
+      --hardware "${HARDWARE}")
 if [ -n "${CHECKPOINT}" ]; then
   ARGS+=(--checkpoint "${CHECKPOINT}")
 else

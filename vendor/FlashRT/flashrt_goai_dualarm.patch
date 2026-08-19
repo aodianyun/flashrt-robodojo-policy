@@ -45,6 +45,39 @@ index cb9abdc..b6a485e 100644
          + q01[:dim]
      )
      return unnorm
+diff --git a/flash_rt/frontends/jax/pi05_rtx.py b/flash_rt/frontends/jax/pi05_rtx.py
+index 794ce9a..bc987b2 100644
+--- a/flash_rt/frontends/jax/pi05_rtx.py
++++ b/flash_rt/frontends/jax/pi05_rtx.py
+@@ -451,10 +451,19 @@ class Pi05JaxFrontendRtx(Pi05TorchFrontendRtx):
+         use_fp8: bool = True,
+         hardware: Optional[str] = None,
+         fp8_layout: Optional[str] = None,
++        action_dim: Optional[int] = None,
++        state_prompt_mode: str = "fixed",
+     ):
+         # Don't chain to Pi05TorchFrontendRtx.__init__ — it expects a safetensors
+         # file. We replicate the body and swap the loader.
+         checkpoint_dir = pathlib.Path(checkpoint_dir)
++        from flash_rt.core.utils.actions import LIBERO_ACTION_DIM as _LIBERO_ACTION_DIM
++        self.action_dim = int(action_dim) if action_dim is not None else _LIBERO_ACTION_DIM
++        _spm = os.environ.get("FLASHRT_PI05_STATE_PROMPT_MODE", state_prompt_mode)
++        if _spm not in ("fixed", "exact"):
++            raise ValueError(
++                f"state_prompt_mode must be 'fixed' or 'exact', got {_spm!r}")
++        self._state_prompt_mode = _spm
+         self.num_views = int(num_views)
+         self.chunk_size = int(chunk_size)
+         self.max_prompt_len = int(max_prompt_len)
+@@ -486,6 +495,8 @@ class Pi05JaxFrontendRtx(Pi05TorchFrontendRtx):
+         self.graph_recorded = False
+         self.current_prompt_len = 0
+         self.pipeline = None
++        self._prompt_pipeline_cache: dict = {}
++        self._fixed_pipeline = None
+ 
+         # RL CFG state — kept in sync with the torch frontend so the JAX
+         # path goes through the same set_prompt / infer hot path. Both
 diff --git a/flash_rt/frontends/jax/pi05_thor.py b/flash_rt/frontends/jax/pi05_thor.py
 index 7a4cad5..3a549b0 100644
 --- a/flash_rt/frontends/jax/pi05_thor.py
@@ -124,6 +157,78 @@ index 7a4cad5..3a549b0 100644
          else:
              robot_actions = raw_actions
  
+diff --git a/flash_rt/frontends/torch/pi05_rtx.py b/flash_rt/frontends/torch/pi05_rtx.py
+index 5edf211..138bc1f 100644
+--- a/flash_rt/frontends/torch/pi05_rtx.py
++++ b/flash_rt/frontends/torch/pi05_rtx.py
+@@ -473,8 +473,11 @@ class Pi05TorchFrontendRtx:
+                  use_fp8: bool = True,
+                  hardware: Optional[str] = None,
+                  fp8_layout: Optional[str] = None,
+-                 state_prompt_mode: str = "exact"):
++                 state_prompt_mode: str = "exact",
++                 action_dim: Optional[int] = None):
+         checkpoint_dir = pathlib.Path(checkpoint_dir)
++        from flash_rt.core.utils.actions import LIBERO_ACTION_DIM as _LIBERO_ACTION_DIM
++        self.action_dim = int(action_dim) if action_dim is not None else _LIBERO_ACTION_DIM
+         # State-in-prompt graph strategy (Pi0.5 renders robot state into the
+         # prompt, so its token length drifts with the state values):
+         #   "exact" (default): a separate pipeline captured per exact length,
+@@ -714,6 +717,15 @@ class Pi05TorchFrontendRtx:
+         except FileNotFoundError as e:
+             raise FileNotFoundError(
+                 f"norm_stats not found near checkpoint: {e}") from e
++        # Match openpi inference: when the stats carry mean+std (RoboDojo
++        # bimanual DeltaActions), unnormalize with the linear mean/std
++        # mapping rather than q01/q99.
++        _ns = self.norm_stats
++        self._use_quantile_unnorm = not (
++            _ns is not None
++            and "std" in _ns.get("actions", {})
++            and "mean" in _ns.get("actions", {})
++        )
+ 
+     def _quantize_all_fp8(self) -> None:
+         """Pre-quantize all large GEMM weights to FP8 E4M3."""
+@@ -1604,8 +1616,10 @@ class Pi05TorchFrontendRtx:
+         self.latency_records.append(latency_ms)
+ 
+         raw_actions = self._noise_out.float().cpu().numpy()  # (chunk, 32)
+-        unnorm = unnormalize_actions(raw_actions, self.norm_stats)
+-        robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
++        unnorm = unnormalize_actions(
++            raw_actions, self.norm_stats,
++            use_quantile=getattr(self, "_use_quantile_unnorm", True))
++        robot_actions = unnorm[:, :self.action_dim]
+ 
+         if debug:
+             logger.info("Raw actions[0,:5]: %s", raw_actions[0, :5])
+@@ -1655,8 +1669,10 @@ class Pi05TorchFrontendRtx:
+         self.latency_records.append(latency_ms)
+ 
+         raw_actions = self._noise_out.float().cpu().numpy()
+-        unnorm = unnormalize_actions(raw_actions, self.norm_stats)
+-        robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
++        unnorm = unnormalize_actions(
++            raw_actions, self.norm_stats,
++            use_quantile=getattr(self, "_use_quantile_unnorm", True))
++        robot_actions = unnorm[:, :self.action_dim]
+ 
+         if debug:
+             logger.info(
+@@ -1870,8 +1886,10 @@ class Pi05TorchFrontendRtx:
+         results = []
+         for b in range(PI05_BATCH_SIZE):
+             raw = self._noise_out_b2[b].float().cpu().numpy()
+-            unnorm = unnormalize_actions(raw, self.norm_stats)
+-            results.append({"actions": unnorm[:, :LIBERO_ACTION_DIM]})
++            unnorm = unnormalize_actions(
++                raw, self.norm_stats,
++                use_quantile=getattr(self, "_use_quantile_unnorm", True))
++            results.append({"actions": unnorm[:, :self.action_dim]})
+         return results
+ 
+     def get_latency_stats(self) -> dict:
 diff --git a/flash_rt/frontends/torch/pi05_thor.py b/flash_rt/frontends/torch/pi05_thor.py
 index e267f5d..d7171fe 100644
 --- a/flash_rt/frontends/torch/pi05_thor.py

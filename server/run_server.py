@@ -54,6 +54,11 @@ def _parse_args(argv=None):
                     help="quantization: fp8 (default), fp4 (NVFP4), fp4-awq, bf16")
     ap.add_argument("--num-views", type=int, default=3)
     ap.add_argument("--action-dim", type=int, default=14)
+    ap.add_argument("--hardware", default="auto",
+                    choices=["auto", "thor", "rtx_sm120", "rtx_sm89"],
+                    help="GPU backend: auto (default, detects via torch/"
+                    "nvidia-smi), thor (SM110), rtx_sm120 (Blackwell), "
+                    "rtx_sm89 (Ada)")
     return ap.parse_args(argv)
 
 
@@ -85,6 +90,7 @@ def _build_model_cfg(args) -> dict:
         "checkpoint_path": _resolve_checkpoint(args),
         "num_views": args.num_views,
         "action_dim": args.action_dim,
+        "hardware": args.hardware,
         "framework": args.framework,
         "use_fp8": quant in ("fp8", "fp4", "fp4-awq"),
         "use_fp4": quant in ("fp4", "fp4-awq"),

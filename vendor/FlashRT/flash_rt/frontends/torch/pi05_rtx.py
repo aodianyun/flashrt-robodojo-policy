@@ -473,8 +473,11 @@ class Pi05TorchFrontendRtx:
                  use_fp8: bool = True,
                  hardware: Optional[str] = None,
                  fp8_layout: Optional[str] = None,
-                 state_prompt_mode: str = "exact"):
+                 state_prompt_mode: str = "exact",
+                 action_dim: Optional[int] = None):
         checkpoint_dir = pathlib.Path(checkpoint_dir)
+        from flash_rt.core.utils.actions import LIBERO_ACTION_DIM as _LIBERO_ACTION_DIM
+        self.action_dim = int(action_dim) if action_dim is not None else _LIBERO_ACTION_DIM
         # State-in-prompt graph strategy (Pi0.5 renders robot state into the
         # prompt, so its token length drifts with the state values):
         #   "exact" (default): a separate pipeline captured per exact length,
@@ -714,6 +717,15 @@ class Pi05TorchFrontendRtx:
         except FileNotFoundError as e:
             raise FileNotFoundError(
                 f"norm_stats not found near checkpoint: {e}") from e
+        # Match openpi inference: when the stats carry mean+std (RoboDojo
+        # bimanual DeltaActions), unnormalize with the linear mean/std
+        # mapping rather than q01/q99.
+        _ns = self.norm_stats
+        self._use_quantile_unnorm = not (
+            _ns is not None
+            and "std" in _ns.get("actions", {})
+            and "mean" in _ns.get("actions", {})
+        )
 
     def _quantize_all_fp8(self) -> None:
         """Pre-quantize all large GEMM weights to FP8 E4M3."""
@@ -1604,11 +1616,19 @@ class Pi05TorchFrontendRtx:
         self.latency_records.append(latency_ms)
 
         raw_actions = self._noise_out.float().cpu().numpy()  # (chunk, 32)
-        unnorm = unnormalize_actions(raw_actions, self.norm_stats)
-        robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
+        unnorm = unnormalize_actions(
+            raw_actions, self.norm_stats,
+            use_quantile=getattr(self, "_use_quantile_unnorm", True))
+        robot_actions = unnorm[:, :self.action_dim]
 
-        if debug:
-            logger.info("Raw actions[0,:5]: %s", raw_actions[0, :5])
+        if os.environ.get("FLASHRT_PI05_RAW_DUMP", "0") == "1":
+            q01 = np.array(self.norm_stats["actions"]["q01"], dtype=np.float32)
+            q99 = np.array(self.norm_stats["actions"]["q99"], dtype=np.float32)
+            print(f"[RAW-DUMP] raw[0,:6]={np.round(raw_actions[0,:6],4).tolist()} "
+                  f"raw[0,6:7]={np.round(raw_actions[0,6:7],4).tolist()} "
+                  f"quantile6={np.round((raw_actions[0,:6]+1)/2*(q99[:6]-q01[:6])+q01[:6],4).tolist()} "
+                  f"quantile_ee={np.round((raw_actions[0,6:7]+1)/2*(q99[6:7]-q01[6:7])+q01[6:7],4).tolist()} "
+                  f"linear6={np.round(unnorm[0,:6],4).tolist()}", flush=True)
             logger.info("Latency: %.1f ms", latency_ms)
 
         return {"actions": robot_actions}
@@ -1655,8 +1675,10 @@ class Pi05TorchFrontendRtx:
         self.latency_records.append(latency_ms)
 
         raw_actions = self._noise_out.float().cpu().numpy()
-        unnorm = unnormalize_actions(raw_actions, self.norm_stats)
-        robot_actions = unnorm[:, :LIBERO_ACTION_DIM]
+        unnorm = unnormalize_actions(
+            raw_actions, self.norm_stats,
+            use_quantile=getattr(self, "_use_quantile_unnorm", True))
+        robot_actions = unnorm[:, :self.action_dim]
 
         if debug:
             logger.info(
@@ -1870,8 +1892,10 @@ class Pi05TorchFrontendRtx:
         results = []
         for b in range(PI05_BATCH_SIZE):
             raw = self._noise_out_b2[b].float().cpu().numpy()
-            unnorm = unnormalize_actions(raw, self.norm_stats)
-            results.append({"actions": unnorm[:, :LIBERO_ACTION_DIM]})
+            unnorm = unnormalize_actions(
+                raw, self.norm_stats,
+                use_quantile=getattr(self, "_use_quantile_unnorm", True))
+            results.append({"actions": unnorm[:, :self.action_dim]})
         return results
 
     def get_latency_stats(self) -> dict:

@@ -5,13 +5,27 @@
 - **Git commit**: `7fd75d20c0528f4c3ba70e23b9fbf579dbc68211`
 - **提交说明**: `7fd75d2 pi05 thor update: NVFP4 encoder/decoder tier + FA4 attention (#164)`
 - **上游**: https://github.com/flashrt-project/FlashRT （与 origin/main 一致）
-- **本目录内容**: `flash_rt/` Python 源码 + 已编译内核 .so（aarch64 / Thor SM110）
+- **本目录内容**: `flash_rt/` Python 源码 + 已编译内核 .so（aarch64 / Thor SM110 **或** x86_64 / Blackwell SM120）
 
 ## 本目录说明
 
 `flash_rt/` 是**编译后的可运行目录**（含 `.so`），已应用补丁 `flashrt_goai_dualarm.patch`。
-本目录中的 3 个 `.so` 内核（aarch64 / Py3.12）已随项目入库（见根 `.gitignore` 豁免项）。
+已入库的 `.so` 内核（Py3.12）见下（根 `.gitignore` 豁免项）。
 拉取本项目后，直接 `sys.path.insert(0, ".../vendor/FlashRT")` 即可 `import flash_rt`，无需重新编译。
+
+### 双架构支持
+
+| 架构 | 目标硬件 | `.so` | 说明 |
+|---|---|---|---|
+| aarch64 | Jetson AGX Thor (sm_110) | 原始入库 3 个 `.so` | Thor 前端（`Pi05*FrontendThor`） |
+| x86_64 | RTX 5090 / 5060 Ti 等 Blackwell (sm_120)、RTX 4090 等 Ada (sm_89) | `flash_rt_kernels` + `flash_rt_fa2`（本机新编） | RTX 前端（`Pi05*FrontendRtx`），由 `--hardware auto` 自动路由 |
+
+> x86_64 / SM120 由 **2026-08-17 本地编译** 生成（CUTLASS v4.4.2，CUDA 13.0，Py3.12）。
+> `flash_rt_kernels*.so`（~17MB）已入库；`flash_rt_fa2*.so`（~350MB）超过 GitHub
+> 单文件 100MB 上限，保持本地构建产物不入库（换机器按上文"从源码重新编译"重建即可）。
+> `flash_rt_fp4` / `libfmha_fp16_strided` 仅 SM100/110（Thor）构建；SM120 上运行时经
+> `api.py` / 前端 `has_nvfp4()` 守卫自动退化为 FP8。原 aarch64 `.so` 保留在
+> `flash_rt/aarch64_backup/`。
 
 ## 已编译内核
 

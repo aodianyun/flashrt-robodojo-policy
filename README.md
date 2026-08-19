@@ -52,11 +52,13 @@ bash vendor/venv-torch/install_torch_venv.sh        # Torch（可选）
 # 2. 下载模型权重
 bash scripts/download_checkpoint.sh pi05-arx-x5 /data/ckpts
 
-# 3. 启动 server
+# 3. 启动 server（--hardware 默认 auto，按 GPU 自动选择 Thor/RTX 后端）
 bash server/start_server.sh --quantization fp8        # FP8（默认）
-bash server/start_server.sh --quantization fp4-awq    # NVFP4 + AWQ
+bash server/start_server.sh --quantization fp4-awq    # NVFP4 + AWQ（仅 Thor）
 bash server/start_server.sh --framework torch --quantization bf16 \
   --model pi05-arx-x5 --ckpt-dir /data/ckpts          # Torch 前端
+bash server/start_server.sh --hardware rtx_sm120 --framework torch \
+  --quantization fp8 --model pi05-arx-x5 --ckpt-dir /data/ckpts  # RTX (SM120) 显式指定
 ```
 
 ### 评测端
@@ -91,6 +93,7 @@ flashrt-robodojo-policy/
 ```text
 --framework jax|torch           推理框架
 --quantization fp8|fp4|fp4-awq|bf16   量化方案
+--hardware auto|thor|rtx_sm120|rtx_sm89   GPU 后端（默认 auto 自动检测）
 --model NAME --ckpt-dir DIR     权重定位（<dir>/<name>/）
 --checkpoint PATH               显式权重路径（覆盖 --model）
 --download-missing              权重缺失时自动下载
@@ -101,10 +104,11 @@ flashrt-robodojo-policy/
 
 1. **JAX 前端仅 FP8/NVFP4**：无真 FP16 路径（权重固定 FP8 量化）；BF16 需 torch 前端 + safetensors 权重
 2. **`.so` 内核已随项目入库**（aarch64 / Py3.12，见 `vendor/FlashRT/README.md`）；换架构或 Python 版本需按该文档重新编译，`*.so` 仅豁免这 3 个内核文件
-3. **模型权重不入库**（~12GB），用 `scripts/download_checkpoint.sh` 下载
-4. **固定 state prompt**：`FLASHRT_PI05_STATE_PROMPT_MODE=fixed` 已默认，避免 CUDA Graph 重捕漂移
-5. **量化切换需重启**：权重在初始化时加载，运行时不可切换
-6. 环境变量仅用于系统层（XLA 内存、tokenizer 路径），业务参数一律 CLI
+3. **硬件自动路由**：`--hardware auto`（默认）按 GPU 计算能力选择后端——sm_110 → Thor 前端，sm_120（RTX 5090/5060 Ti 等 Blackwell）/ sm_89（RTX 4090 等 Ada）→ RTX 前端；也可用 `--hardware thor|rtx_sm120|rtx_sm89` 显式指定。NVFP4（fp4/fp4-awq）仅 Thor 可用，RTX 上自动退化为 FP8
+4. **模型权重不入库**（~12GB），用 `scripts/download_checkpoint.sh` 下载
+5. **固定 state prompt**：`FLASHRT_PI05_STATE_PROMPT_MODE=fixed` 已默认，避免 CUDA Graph 重捕漂移
+6. **量化切换需重启**：权重在初始化时加载，运行时不可切换
+7. 环境变量仅用于系统层（XLA 内存、tokenizer 路径），业务参数一律 CLI
 
 ## 📊 评测结果
 
