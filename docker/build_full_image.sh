@@ -50,9 +50,16 @@ echo "  image:     ${IMAGE}:${TAG}"
 echo "  arch:      ${ARCH_TAG}"
 
 # ── 1. 校验模型 ──
+# norm_stats.json 可能是符号链接 (如指向 assets/arx_x5_sim/norm_stats.json);
+# 用 -e 判断存在性, 并容忍链接指向其他位置 (坏链接视为缺失).
 [ -d "${MODEL_DIR}/params" ] || { echo "错误: 模型目录缺少 params/"; exit 1; }
-[ -f "${MODEL_DIR}/norm_stats.json" ] || { echo "错误: 缺少 norm_stats.json"; exit 1; }
 [ -f "${MODEL_DIR}/config.json" ] || { echo "错误: 缺少 config.json"; exit 1; }
+if [ -e "${MODEL_DIR}/norm_stats.json" ] || \
+   [ -f "${MODEL_DIR}/assets/arx_x5_sim/norm_stats.json" ]; then
+  echo "  norm_stats.json OK"
+else
+  echo "错误: 缺少 norm_stats.json (根目录或 assets/arx_x5_sim/ 下均无)"; exit 1
+fi
 
 # ── 2. 校验预编译内核 ──
 KERNELS_OK=0
@@ -81,9 +88,22 @@ cp "${PROJECT_ROOT}"/vendor/FlashRT/flash_rt/*.so "${CTX}/vendor/FlashRT/flash_r
 
 # 模型: 拷贝进构建上下文
 mkdir -p "${CTX}/models/model"
-cp -r "${MODEL_DIR}"/params "${MODEL_DIR}"/norm_stats.json "${MODEL_DIR}"/config.json \
-      "${MODEL_DIR}"/assets "${MODEL_DIR}"/README.md "${CTX}/models/model/" 2>/dev/null || true
-ls "${CTX}/models/model/" >/dev/null
+# params/ + config.json + assets/ (必需)
+cp -rL "${MODEL_DIR}/params" "${CTX}/models/model/"
+[ -f "${MODEL_DIR}/config.json" ] && cp "${MODEL_DIR}/config.json" "${CTX}/models/model/"
+[ -d "${MODEL_DIR}/assets" ] && cp -rL "${MODEL_DIR}/assets" "${CTX}/models/model/"
+[ -f "${MODEL_DIR}/README.md" ] && cp "${MODEL_DIR}/README.md" "${CTX}/models/model/"
+# norm_stats.json: 跟随符号链接拷贝 (坏链接则从 assets/arx_x5_sim/ 取真实文件)
+if [ -e "${MODEL_DIR}/norm_stats.json" ] && [ -f "${MODEL_DIR}/norm_stats.json" ]; then
+  cp -L "${MODEL_DIR}/norm_stats.json" "${CTX}/models/model/norm_stats.json"
+elif [ -f "${MODEL_DIR}/assets/arx_x5_sim/norm_stats.json" ]; then
+  cp "${MODEL_DIR}/assets/arx_x5_sim/norm_stats.json" "${CTX}/models/model/norm_stats.json"
+fi
+# 校验构建上下文里的模型完整
+for f in params config.json norm_stats.json; do
+  [ -e "${CTX}/models/model/${f}" ] || { echo "错误: 模型拷贝后缺少 ${f}"; exit 1; }
+done
+echo "  模型已就绪: $(ls "${CTX}/models/model")"
 
 # ── 4. 构建镜像 ──
 echo "== docker build ${IMAGE}:${TAG} =="
