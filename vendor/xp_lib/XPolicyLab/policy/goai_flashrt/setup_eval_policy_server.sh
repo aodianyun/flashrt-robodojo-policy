@@ -18,7 +18,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # goai_flashrt -> policy -> XPolicyLab -> xp_lib -> vendor -> repo root
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-# 解释器: 优先 PYTHON_BIN (deploy.sh 注入), 否则 PATH 中的 python3
+# 解释器: 优先 PYTHON_BIN (可注入), 否则 PATH 中的 python3
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 CHECKPOINT="${CHECKPOINT:-/models/model}"

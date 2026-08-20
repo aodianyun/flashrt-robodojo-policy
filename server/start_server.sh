@@ -66,7 +66,7 @@ export XLA_PYTHON_CLIENT_PREALLOCATE=false
 export FLASHRT_PI05_STATE_PROMPT_MODE=fixed
 # tokenizer model 随项目自带，避免首次联网下载
 export FLASH_RT_PALIGEMMA_TOKENIZER="${PROJECT_ROOT}/vendor/FlashRT/assets/paligemma_tokenizer.model"
-# Python 解释器: 默认系统 python3；部署时可用 venv python (deploy.sh 传入)
+# Python 解释器: 默认系统 python3; 可经 PYTHON_BIN 覆盖
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 LOG=/tmp/ws_server_${PORT}.log
