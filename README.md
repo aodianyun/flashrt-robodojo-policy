@@ -57,7 +57,7 @@ bash scripts/robodojo.sh client \
 ├── COMPETE.md               # 参赛说明
 ├── DEPLOY.md                # 部署文档
 ├── server/                  # WS 策略服务器
-├── docker/                  # Docker 镜像构建
+├── docker/Dockerfile        # 完整构建流程 (git + 模型 + FlashRT 编译 + 依赖 + 运行)
 ├── scripts/                 # 模型下载/上传脚本
 └── vendor/
     ├── FlashRT/             # 推理引擎
