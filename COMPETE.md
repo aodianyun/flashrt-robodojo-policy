@@ -62,17 +62,13 @@ modelscope download \
 ### Docker (推荐)
 
 ```bash
-# 拉取/构建镜像后
-docker run --gpus all --shm-size=8g -p 3101:3101 flashrt-goai-robodojo-wsserver:v1.0
+docker run --gpus all --shm-size=8g -p 3101:3101 \
+  registry.cn-hangzhou.aliyuncs.com/adpub/flashrt-goai-robodojo-wsserver:v1.2
 ```
 
-### 裸机
+### 环境要求
 
-```bash
-bash server/start_server.sh \
-  --checkpoint /models/model --port 3101 \
-  --framework jax --quantization fp8 --hardware auto
-```
+- GPU: NVIDIA RTX 50 系 (已验证 RTX 5060 Ti), 16GB+ 显存
 
 就绪标志:
 

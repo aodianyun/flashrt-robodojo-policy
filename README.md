@@ -6,36 +6,50 @@
 - **机器人**: ARX X5 双臂 (14 关节)
 - **模型**: 魔塔自训练模型 (见 [COMPETE.md](./COMPETE.md))
 - **协议**: XPolicyLab WebSocket
-- **硬件**: RTX 5090/5060 Ti (SM120) 或 RTX 4090 (SM89), 16GB+ 显存
+- **GPU 要求**: NVIDIA RTX 50 系 (已验证 RTX 5060 Ti), 16GB+ 显存
 
-## 快速启动
+## 快速开始 (Docker)
+
+### 1. 运行策略服务器
 
 ```bash
-git clone https://github.com/aodianyun/flashrt-robodojo-policy.git
-cd flashrt-robodojo-policy
-
-# 1. 下载模型 (魔塔)
-pip install modelscope
-modelscope download \
-  --model cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 \
-  --local_dir /models/model
-
-# 2. 启动策略服务器
-bash server/start_server.sh \
-  --checkpoint /models/model --port 3101 \
-  --framework jax --quantization fp8 --hardware auto
+docker run --gpus all --shm-size=8g -p 3101:3101 \
+  registry.cn-hangzhou.aliyuncs.com/adpub/flashrt-goai-robodojo-wsserver:v1.2
 ```
 
-就绪后评测端连接 `ws://<SERVER_IP>:3101`。
+就绪标志:
 
-## 部署
+```
+INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0.0.0:3101
+```
 
-- **Docker**: [`docker/build_full_image.sh`](./docker/build_full_image.sh)(构建含模型的完整镜像)
-- **完整部署文档**: [`DEPLOY.md`](./DEPLOY.md)
+> 镜像已内置代码 + 内核 + 模型, 拉取即用, 无需构建或下载模型。
 
-## 参赛说明
+### 2. 评测端命令 (RoboDojo 端)
 
-- [`COMPETE.md`](./COMPETE.md) — 提交信息、模型、配置、评测命令
+```bash
+bash scripts/robodojo.sh client \
+  --policy-dir XPolicyLab/policy/goai_flashrt \
+  --task stack_bowls \
+  --policy-host <SERVER_IP> \
+  --policy-port 3101 \
+  --action-type joint \
+  --ckpt goai_stack \
+  --eval-num 10
+```
+
+## 环境要求
+
+| 项 | 要求 |
+|---|---|
+| GPU | NVIDIA RTX 50 系 (已验证 RTX 5060 Ti), 16GB+ 显存 |
+| 驱动 | NVIDIA 545+ |
+| Docker | 20.10+, nvidia-container-toolkit |
+
+## 更多文档
+
+- [`COMPETE.md`](./COMPETE.md) — 参赛说明 (提交信息、模型、配置)
+- [`DEPLOY.md`](./DEPLOY.md) — 部署流程
 
 ## 目录结构
 
