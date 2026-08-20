@@ -43,6 +43,7 @@ RUN PYTHONPATH=/opt/flashrt-robodojo-policy/vendor/FlashRT:/opt/flashrt-robodojo
 EXPOSE 3101
 ENV PYTHONPATH=/opt/flashrt-robodojo-policy/vendor/FlashRT:/opt/flashrt-robodojo-policy/vendor/xp_lib:/opt/flashrt-robodojo-policy
 ENV FLASHRT_PI05_STATE_PROMPT_MODE=fixed
+ENV FLASH_RT_PALIGEMMA_TOKENIZER=/opt/flashrt-robodojo-policy/vendor/FlashRT/assets/paligemma_tokenizer.model
 ENV XLA_PYTHON_CLIENT_PREALLOCATE=false
 CMD ["python3", "-u", "server/run_server.py", \
      "--framework", "jax", "--quantization", "fp8", "--hardware", "auto", \

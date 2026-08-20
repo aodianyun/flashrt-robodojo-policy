@@ -24,7 +24,9 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MODEL_DIR="${MODEL_DIR:-}"
 IMAGE="${IMAGE:-flashrt-robodojo}"
 TAG="${TAG:-full}"
-ARCH_TAG="cpython-$(python3 -c 'import sys; print(sys.version_info.minor)')-$(uname -m)-linux-gnu"
+# Python 标签: cpython-312 (major+minor 拼接, 不是仅 minor)
+PY_TAG=$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')
+ARCH_TAG="cpython-${PY_TAG}-$(uname -m)-linux-gnu"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -62,14 +64,18 @@ else
 fi
 
 # ── 2. 校验预编译内核 ──
+# 从已有 .so 文件名匹配 x86_64 内核 (不依赖物理机 python 版本, 内核是
+# 用目标容器的 Python 3.12 编译的 cpython-312-x86_64 文件).
 KERNELS_OK=0
-for so in "${PROJECT_ROOT}"/vendor/FlashRT/flash_rt/flash_rt_kernels*"${ARCH_TAG}".so \
-          "${PROJECT_ROOT}"/vendor/FlashRT/flash_rt/flash_rt_fa2*"${ARCH_TAG}".so; do
+for so in "${PROJECT_ROOT}"/vendor/FlashRT/flash_rt/flash_rt_kernels*cpython-*-x86_64-linux-gnu.so \
+          "${PROJECT_ROOT}"/vendor/FlashRT/flash_rt/flash_rt_fa2*cpython-*-x86_64-linux-gnu.so; do
   [ -f "$so" ] && [ -s "$so" ] && KERNELS_OK=$((KERNELS_OK+1))
 done
 if [ "${KERNELS_OK}" -lt 2 ]; then
-  echo "错误: 缺少匹配架构的预编译内核 (需 flash_rt_kernels + flash_rt_fa2, ${ARCH_TAG})"
-  echo "  请先按 vendor/FlashRT/README.md 编译, 或确认本机架构与内核一致"
+  echo "错误: 缺少匹配的 x86_64 预编译内核 (需 flash_rt_kernels + flash_rt_fa2)"
+  echo "  当前 flash_rt/ 下的 .so:"
+  ls "${PROJECT_ROOT}"/vendor/FlashRT/flash_rt/*.so 2>/dev/null | sed 's/^/    /' || true
+  echo "  请先按 vendor/FlashRT/README.md 编译, 或确认内核与目标架构一致"
   exit 1
 fi
 echo "  预编译内核 OK (${KERNELS_OK} 个)"
