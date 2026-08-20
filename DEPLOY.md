@@ -1,6 +1,6 @@
 # 部署文档 — GOAI 2026 策略服务器
 
-部署策略服务器, 使 RoboDojo 评测端通过 WebSocket 获取动作。
+在物理机上基于 `nvcr.io/nvidia/pytorch:25.10-py3` 完整部署策略服务器。
 
 ## 环境要求
 
@@ -8,15 +8,45 @@
 - 驱动: NVIDIA 545+
 - Docker: 20.10+, nvidia-container-toolkit
 
-## Docker 部署 (推荐)
+## 步骤 1 — 拉取基础镜像
 
-> 基础镜像 `nvcr.io/nvidia/pytorch:25.10-py3`, 镜像已内置代码 + 内核 + 模型。
+```bash
+docker pull nvcr.io/nvidia/pytorch:25.10-py3
+```
 
-### 1. 拉取并运行
+## 步骤 2 — 获取项目代码
+
+```bash
+git clone https://github.com/aodianyun/flashrt-robodojo-policy.git
+cd flashrt-robodojo-policy
+```
+
+## 步骤 3 — 准备模型
+
+```bash
+pip install modelscope
+modelscope download \
+  --model cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 \
+  --local_dir /models/model
+```
+
+## 步骤 4 — 构建镜像
+
+```bash
+bash docker/build_full_image.sh \
+  --model-dir /models/model \
+  --image flashrt-goai-robodojo-wsserver \
+  --tag v1.2
+```
+
+> 脚本基于 `nvcr.io/nvidia/pytorch:25.10-py3`, 将代码 + 预编译内核 + 模型
+> 一并打入镜像。产物: `flashrt-goai-robodojo-wsserver:v1.2`。
+
+## 步骤 5 — 运行策略服务器
 
 ```bash
 docker run --gpus all --shm-size=8g -p 3101:3101 \
-  registry.cn-hangzhou.aliyuncs.com/adpub/flashrt-goai-robodojo-wsserver:v1.2
+  flashrt-goai-robodojo-wsserver:v1.2
 ```
 
 就绪标志:
@@ -25,7 +55,7 @@ docker run --gpus all --shm-size=8g -p 3101:3101 \
 INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0.0.0:3101
 ```
 
-### 2. 评测端连接 (RoboDojo 端)
+## 评测端连接 (RoboDojo 端)
 
 ```bash
 bash scripts/robodojo.sh client \

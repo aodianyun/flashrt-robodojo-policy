@@ -57,24 +57,12 @@ modelscope download \
 
 ## 3. 部署
 
-完整部署流程见 [`DEPLOY.md`](./DEPLOY.md)。
-
-### Docker (推荐)
-
-```bash
-docker run --gpus all --shm-size=8g -p 3101:3101 \
-  registry.cn-hangzhou.aliyuncs.com/adpub/flashrt-goai-robodojo-wsserver:v1.2
-```
+完整部署流程 (逐步) 见 [`DEPLOY.md`](./DEPLOY.md)。
 
 ### 环境要求
 
 - GPU: NVIDIA RTX 50 系 (已验证 RTX 5060 Ti), 16GB+ 显存
-
-就绪标志:
-
-```
-INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0.0.0:3101
-```
+- 部署基座: `nvcr.io/nvidia/pytorch:25.10-py3`
 
 ## 4. 评测命令 (RoboDojo 端)
 
