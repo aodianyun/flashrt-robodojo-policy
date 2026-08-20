@@ -1,0 +1,16 @@
+# Docker build context exclusions — keep the image lean.
+.venv/
+vendor/venv-jax/.venv/
+vendor/venv-torch/.venv/
+vendor/FlashRT/flash_rt/aarch64_backup/
+**/__pycache__/
+*.pyc
+*.log
+ckpt/
+checkpoints/
+*.safetensors
+.git/
+eval_result/
+eval_summary/
+# 注意: vendor/FlashRT/flash_rt/flash_rt_fa2*.so 和 flash_rt_kernels*.so
+# 必须保留在构建上下文中 (Dockerfile 依赖预编译内核), 不要在此排除。

@@ -1,17 +1,40 @@
-# GOAI FlashRT — XPolicyLab policy 配置
-# 注: 实际启动由 server/run_server.py 的 CLI 参数控制（--model/--framework/--quantization）。
-#     本文件供 XPolicyLab 客户端参考，字段与 robodojo.sh client 的 --policy-name 对应。
+# GOAI 2026 — FlashRT Pi0.5 双臂策略 (XPolicyLab deploy.yml)
+#
+# XPolicyLab 标准运行时配置。实际 server 启动由 server/run_server.py 的
+# CLI 参数控制; 本文件供 robodojo.sh client / setup_eval_policy_server.sh
+# 解析 policy_name / protocol / 端口等字段。
+#
+# 评测命令 (RoboDojo 侧):
+#   bash scripts/robodojo.sh client \
+#     --policy-name goai_flashrt \
+#     --policy-host <SERVER_IP> --policy-port 3101 \
+#     --task stack_bowls --action-type joint --ckpt goai_stack --eval-num 10
+
 policy_name: goai_flashrt
 protocol: ws
 host: 0.0.0.0
-port: 3001
+port: 3101
 action_type: joint
-# 权重由 server 启动时解析：--model pi05-arx-x5 --ckpt-dir /data/ckpts
-# 或显式 --checkpoint <path>（orbax 目录 / safetensors 目录）
-num_views: 3
-action_dim: 14
+env_cfg_type: arx_x5
+
+# 模型权重: 由 server 启动时解析 (--checkpoint <path>, orbax 目录)
+# 权重由下方 --checkpoint 显式指定; 模型目录需含 params/ + norm_stats.json。
+
+# FlashRT / 模型运行参数 (与 server/run_server.py CLI 一一对应)
 framework: jax
 quantization: fp8
+hardware: auto
+num_views: 3
+action_dim: 14
 use_fp8: true
 weight_cache: false
 use_cuda_graph: false
+
+# 机器人配置 (RoboDojo ARX X5 双臂)
+robot: dual_x5
+action_dim_info:
+  arm_dim: [6, 6]
+  ee_dim: [1, 1]
+
+# 评测批处理 (batch client 用)
+eval_batch: false
