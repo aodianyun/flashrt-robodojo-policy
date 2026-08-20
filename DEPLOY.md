@@ -10,7 +10,7 @@ WebSocket 连接并实时获取动作。
 |---|---|
 | 代码仓库 | `https://github.com/aodianyun/flashrt-robodojo-policy.git` |
 | 模型 | 魔塔 `cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000`(见 `COMPETE.md`) |
-| 内核 | 预编译 SM120/RTX x86_64 内核(`vendor/FlashRT/flash_rt/*.so`)已入库/随镜像 |
+| 内核 | 镜像内完整编译 FlashRT 内核 (见 docker/Dockerfile) |
 
 ## 1. 环境要求
 
@@ -21,8 +21,8 @@ WebSocket 连接并实时获取动作。
 - Python 3.12, Docker 20.10+ (nvidia-container-toolkit)
 - 磁盘: 模型 12GB + 镜像/依赖若干
 
-> 预编译 `.so` 为 **x86_64 / Python 3.12 / CUDA 13 / SM120 (Blackwell)**。
-> 换架构或 Python 版本需按 `vendor/FlashRT/README.md` 重新编译。
+> Docker 镜像在构建时**镜像内完整编译** FlashRT CUDA 内核(默认 GPU_ARCH=120,
+> 即 Blackwell)。裸机部署需按 `vendor/FlashRT/README.md` 自行编译匹配架构的 `.so`。
 
 ## 2. 方式 A — Docker 快速部署 (推荐)
 
@@ -46,7 +46,7 @@ bash docker/deploy_docker.sh \
   --port 3101
 ```
 
-首次会构建镜像(内含预编译内核,无需容器内编译),随后挂载模型并启动容器。
+首次会构建镜像(镜像内完整编译 FlashRT CUDA 内核, 自足无外部依赖),随后挂载模型并启动容器。
 
 等价手动命令:
 
@@ -157,7 +157,7 @@ bash scripts/robodojo.sh client \
 | `norm_stats not found` | 确保 checkpoint 含 `norm_stats.json`(魔塔模型已带) |
 | 端口被占 | 换 `--port`, 并保持 client `--policy-port` 一致 |
 | 显存不足 | 检查无其他进程占 GPU (`nvidia-smi`); 模型需 16GB+ |
-| `flash_rt_fa2` 缺失 | 预编译 .so 未随镜像/仓库; 按 `vendor/FlashRT/README.md` 重新编译 |
+| `flash_rt_fa2` 缺失 | 裸机未编译内核; 用 Docker 镜像或按 `vendor/FlashRT/README.md` 编译 |
 
 ## 7. 参考
 

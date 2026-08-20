@@ -65,7 +65,7 @@
 
 | 方式 | 命令 | 说明 |
 |---|---|---|
-| **Docker (推荐)** | `bash docker/deploy_docker.sh --model-dir <目录> --port 3101` | 镜像内置预编译内核, 快速 |
+| **Docker (推荐)** | `bash docker/deploy_docker.sh --model-dir <目录> --port 3101` | 镜像内完整编译内核, 自足快速 |
 | 裸机 | `bash vendor/xp_lib/XPolicyLab/policy/goai_flashrt/setup_eval_policy_server.sh --checkpoint <dir> --port 3101` | 需 Python 3.12 + CUDA 13 |
 | 包装脚本 | `bash server/start_server.sh --checkpoint <dir> --port 3101 --hardware auto` | |
 
@@ -79,7 +79,7 @@ INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0
 
 - GPU: RTX 5090 / 5060 Ti (SM120) 或 RTX 4090 (SM89), 16GB+ 显存
 - 驱动 545+, CUDA 13.0, Python 3.12
-- 预编译内核为 **x86_64 / Py3.12 / CUDA13 / SM120**; 换架构需重编 (见 `vendor/FlashRT/README.md`)
+- 内核 `.so` 不入库: 用 Docker 镜像(镜像内编译)或按 `vendor/FlashRT/README.md` 自行编译
 
 ### 3.3 硬件路由
 
@@ -169,17 +169,17 @@ flashrt-robodojo-policy/
 ├── README.md                     # 项目说明
 ├── deploy.sh                     # 一键部署 (venv + 权重 + 启动)
 ├── scripts/
-│   ├── package_model.sh          # 模型打包脚本 (生成 zip + md5)
+│   ├── upload_model_modelscope.sh # 模型上传魔塔 (SDK 目录上传)
 │   ├── download_checkpoint.sh
 │   └── resolve_checkpoint.sh
 ├── server/                       # WS 策略服务器
 │   ├── run_server.py
 │   └── start_server.sh
 ├── docker/
-│   ├── Dockerfile                # 参赛镜像 (预编译内核)
+│   ├── Dockerfile                # 参赛镜像 (镜像内编译内核)
 │   └── deploy_docker.sh          # 一键 Docker 部署
 └── vendor/
-    ├── FlashRT/                  # 推理引擎 (7fd75d2 + 补丁 + 预编译 .so)
+    ├── FlashRT/                  # 推理引擎 (7fd75d2 + 补丁, .so 镜像内编译)
     └── xp_lib/XPolicyLab/policy/goai_flashrt/  # 策略适配层
         ├── model.py
         ├── deploy.yml
