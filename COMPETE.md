@@ -66,11 +66,15 @@ modelscope download \
 
 ## 4. 评测命令 (RoboDojo 端)
 
+> 评测端在 RoboDojo 仓库执行, `--policy-dir` 指向含 `deploy.py` 的策略目录
+> (可用评测端已有的 `XPolicyLab/policy/Pi_05`, 或将本项目适配层
+> `vendor/xp_lib/XPolicyLab/policy/goai_flashrt/` 拷入 `XPolicyLab/policy/`)。
+
 ### 批量评测 (12 个指定任务, 每任务 5 次)
 
 ```bash
 bash scripts/robodojo.sh client \
-  --policy-name goai_flashrt \
+  --policy-dir XPolicyLab/policy/Pi_05 \
   --policy-host <SERVER_IP> \
   --policy-port 3101 \
   --action-type joint \
@@ -86,7 +90,7 @@ bash scripts/robodojo.sh client \
 
 ```bash
 bash scripts/robodojo.sh client \
-  --policy-name goai_flashrt \
+  --policy-dir XPolicyLab/policy/Pi_05 \
   --policy-host <SERVER_IP> \
   --policy-port 3101 \
   --task stack_bowls \

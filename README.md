@@ -29,7 +29,7 @@ INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0
 
 ```bash
 bash scripts/robodojo.sh client \
-  --policy-name goai_flashrt \
+  --policy-dir XPolicyLab/policy/Pi_05 \
   --policy-host <SERVER_IP> \
   --policy-port 3101 \
   --action-type joint \
