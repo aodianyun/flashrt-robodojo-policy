@@ -4,19 +4,24 @@
 # 生成一个"代码 + 预编译内核 + 模型"完全自足的镜像, 赛事方 docker run 即用。
 #
 # 前置:
-#   - 本机已编译 FlashRT 内核 .so (vendor/FlashRT/flash_rt/*.so)
-#   - 参赛模型目录 (默认 /app/models/30000, 含 params/config/norm_stats)
-#   - 物理机可访问 /app (挂载) 且有 docker + nvidia-container-toolkit
+#   - 在物理机上运行 (docker CLI 需在物理机, 不在容器内)
+#   - 项目目录已 checkout 到物理机 (含 vendor/FlashRT/flash_rt/*.so 预编译内核)
+#   - 参赛模型目录在物理机 (含 params/config/norm_stats)
+#   - 物理机有 docker + nvidia-container-toolkit
 #
 # 用法:
-#   bash docker/build_full_image.sh [--model-dir DIR] [--image NAME] [--tag TAG]
+#   bash docker/build_full_image.sh --model-dir <物理机模型路径> \
+#       [--image NAME] [--tag TAG]
+#
+#   注意: --model-dir 必须是物理机路径 (容器内 /app/... 在物理机上不存在,
+#         请用物理机上的实际路径, 例如 /data/models/30000)。
 #
 # 产物: flashrt-robodojo:full (可 docker save / push 到公共仓库)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-MODEL_DIR="${MODEL_DIR:-/app/models/30000}"
+MODEL_DIR="${MODEL_DIR:-}"
 IMAGE="${IMAGE:-flashrt-robodojo}"
 TAG="${TAG:-full}"
 ARCH_TAG="cpython-$(python3 -c 'import sys; print(sys.version_info.minor)')-$(uname -m)-linux-gnu"
@@ -27,13 +32,19 @@ while [[ $# -gt 0 ]]; do
     --image)     IMAGE="$2"; shift 2 ;;
     --tag)       TAG="$2"; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 [--model-dir DIR] [--image NAME] [--tag TAG]"
+      echo "Usage: $0 --model-dir <物理机模型路径> [--image NAME] [--tag TAG]"
+      echo "  --model-dir  必填: 物理机上参赛模型目录 (含 params/config/norm_stats)"
+      echo "  --image      镜像名 (默认 flashrt-robodojo)"
+      echo "  --tag        标签 (默认 full)"
       exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 
+[ -n "${MODEL_DIR}" ] || { echo "错误: 必须指定 --model-dir (物理机模型路径)"; exit 1; }
+
 echo "==== GOAI 2026 完整镜像构建 ===="
+echo "  project:   ${PROJECT_ROOT}"
 echo "  model-dir: ${MODEL_DIR}"
 echo "  image:     ${IMAGE}:${TAG}"
 echo "  arch:      ${ARCH_TAG}"

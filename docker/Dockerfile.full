@@ -29,15 +29,13 @@ RUN python3 -m pip install --no-cache-dir \
 WORKDIR /opt/flashrt-robodojo-policy
 COPY . .
 
-# editable 注册 flash_rt (不重新编译内核)
-RUN python3 -m pip install --no-cache-dir --no-build-isolation \
-        -e "/opt/flashrt-robodojo-policy/vendor/FlashRT[torch]"
+# flash_rt 通过 PYTHONPATH 导入 (见下方 ENV), 无需 pip install -e
 
 # ── 模型 (内置, 免下载) ──
 # 构建时通过 build_full_image.sh 将模型目录拷贝到 ./models/model 再 COPY
 COPY models/model /models/model
 
-# ── 自检 ──
+# ── 自检: 验证内核可加载 ──
 RUN PYTHONPATH=/opt/flashrt-robodojo-policy/vendor/FlashRT:/opt/flashrt-robodojo-policy/vendor/xp_lib:/opt/flashrt-robodojo-policy \
     python3 -c "import flash_rt; from flash_rt import flash_rt_kernels; from flash_rt import flash_rt_fa2; print('flash_rt kernels+fa2 OK')"
 
