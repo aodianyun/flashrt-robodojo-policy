@@ -85,8 +85,21 @@ echo "== 准备构建上下文 =="
 CTX=$(mktemp -d)
 trap 'rm -rf "${CTX}"' EXIT
 
-# 代码: 用 git archive 取干净源码 (无 .so, 无 .git)
-(cd "${PROJECT_ROOT}" && git archive HEAD | tar -x -C "${CTX}")
+# 代码: 直接打包工作区 (排除 .git/venv/日志等), 保证用当前磁盘上的最新文件
+# (不依赖 git HEAD, 避免本地 git 落后导致旧代码入镜像)
+tar --exclude='.git' \
+    --exclude='.venv' \
+    --exclude='vendor/venv-jax/.venv' \
+    --exclude='vendor/venv-torch/.venv' \
+    --exclude='**/__pycache__' \
+    --exclude='*.pyc' \
+    --exclude='*.log' \
+    --exclude='ckpt' \
+    --exclude='checkpoints' \
+    --exclude='*.safetensors' \
+    --exclude='eval_result' \
+    --exclude='eval_summary' \
+    -C "${PROJECT_ROOT}" -cf - . | tar -x -C "${CTX}"
 
 # 把预编译 .so 放回构建上下文的 flash_rt/ 目录 (Dockerfile COPY . . 需要)
 mkdir -p "${CTX}/vendor/FlashRT/flash_rt"
