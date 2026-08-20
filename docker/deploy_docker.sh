@@ -3,37 +3,38 @@
 #
 # 用法:
 #   bash docker/deploy_docker.sh \
-#       --model-zip /path/to/RoboDojo-...-30000.zip \
-#       [--model-dir /models/model] [--port 3101] [--no-build]
+#       --model-dir /models/model \
+#       [--port 3101] [--no-build]
+#
+# 模型目录可用魔塔官方命令下载:
+#   modelscope download --model cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 \
+#       --local_dir /models/model
 #
 # 流程:
 #   1. 构建镜像 (首次; 已有镜像加 --no-build 跳过)
-#   2. 解压模型 zip 到挂载目录
-#   3. 以 --gpus all 启动 WS 策略服务器 (端口 3101)
+#   2. 以 --gpus all 挂载模型目录并启动 WS 策略服务器 (端口 3101)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODEL_ZIP=""
-MODEL_DIR="/models/model"
-PORT="3101"
-NO_BUILD="0"
+MODEL_DIR="${MODEL_DIR:-/models/model}"
+PORT="${PORT:-3101}"
+NO_BUILD="${NO_BUILD:-0}"
 IMAGE="flashrt-robodojo:latest"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --model-zip)  MODEL_ZIP="$2"; shift 2 ;;
     --model-dir)  MODEL_DIR="$2"; shift 2 ;;
     --port)       PORT="$2"; shift 2 ;;
     --no-build)   NO_BUILD="1"; shift ;;
     -h|--help)
-      echo "Usage: $0 --model-zip <zip> [--model-dir DIR] [--port N] [--no-build]"
+      echo "Usage: $0 --model-dir <dir> [--port N] [--no-build]"
       exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 
-[ -n "${MODEL_ZIP}" ] || { echo "错误: 需要 --model-zip <模型zip路径>"; exit 1; }
-[ -f "${MODEL_ZIP}" ] || { echo "错误: 模型zip不存在: ${MODEL_ZIP}"; exit 1; }
+[ -n "${MODEL_DIR}" ] || { echo "错误: 需要 --model-dir <模型目录>"; exit 1; }
+[ -d "${MODEL_DIR}/params" ] || { echo "错误: 目录无效(缺少 params/): ${MODEL_DIR}"; exit 1; }
 
 # ── 1. 构建镜像 ──
 if [ "${NO_BUILD}" = "0" ]; then
@@ -43,21 +44,12 @@ else
   echo "== [1/3] 跳过构建 (--no-build) =="
 fi
 
-# ── 2. 解压模型 ──
-echo "== [2/3] 解压模型到 ${MODEL_DIR} =="
-mkdir -p "$(dirname "${MODEL_DIR}")"
-if [ ! -d "${MODEL_DIR}/params" ]; then
-  # zip 内是 <name>/ 目录, 提取第一个子目录
-  TMP=$(mktemp -d)
-  unzip -q "${MODEL_ZIP}" -d "${TMP}"
-  INNER=$(find "${TMP}" -maxdepth 1 -mindepth 1 -type d | head -1)
-  if [ -z "${INNER}" ]; then echo "错误: zip 内无模型目录"; exit 1; fi
-  mv "${INNER}" "${MODEL_DIR}"
-  rm -rf "${TMP}"
-  echo "  模型已解压: ${MODEL_DIR}"
-else
-  echo "  模型已存在, 跳过解压"
-fi
+# ── 2. 校验模型目录 ──
+echo "== [2/3] 校验模型目录 ${MODEL_DIR} =="
+for f in config.json norm_stats.json params; do
+  [ -e "${MODEL_DIR}/${f}" ] || { echo "错误: 缺少 ${MODEL_DIR}/${f}"; exit 1; }
+done
+echo "  模型目录完整"
 
 # ── 3. 启动容器 ──
 echo "== [3/3] 启动策略服务器 (端口 ${PORT}) =="

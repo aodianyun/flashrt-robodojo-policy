@@ -9,7 +9,7 @@ WebSocket 连接并实时获取动作。
 | 交付物 | 说明 |
 |---|---|
 | 代码仓库 | `https://github.com/aodianyun/flashrt-robodojo-policy.git` |
-| 模型 | `RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000.zip`(见 `COMPETE.md` 的 MD5) |
+| 模型 | 魔塔 `cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000`(见 `COMPETE.md`) |
 | 内核 | 预编译 SM120/RTX x86_64 内核(`vendor/FlashRT/flash_rt/*.so`)已入库/随镜像 |
 
 ## 1. 环境要求
@@ -29,11 +29,12 @@ WebSocket 连接并实时获取动作。
 ### 2.1 准备模型
 
 ```bash
-# 解压参赛模型 zip (或挂载现成目录)
-unzip RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000.zip -d /models/
-mv /models/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 /models/model
-# 校验 MD5 (见 COMPETE.md)
-md5sum /models/model/*  # 或对 zip 校验
+# 用魔塔官方命令下载 (自带完整性校验)
+pip install modelscope
+modelscope download \
+  --model cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 \
+  --local_dir /models/model
+# 或挂载已有模型目录
 ```
 
 ### 2.2 一键部署
@@ -41,11 +42,11 @@ md5sum /models/model/*  # 或对 zip 校验
 ```bash
 cd flashrt-robodojo-policy
 bash docker/deploy_docker.sh \
-  --model-zip /path/to/RoboDojo-...-30000.zip \
+  --model-dir /models/model \
   --port 3101
 ```
 
-首次会构建镜像(内含预编译内核,无需容器内编译),随后解压模型并启动容器。
+首次会构建镜像(内含预编译内核,无需容器内编译),随后挂载模型并启动容器。
 
 等价手动命令:
 
@@ -153,7 +154,7 @@ bash scripts/robodojo.sh client \
 | 现象 | 处理 |
 |---|---|
 | `cuBLAS error ... code=15` | 误用 Thor 前端; 确保 `--hardware auto` 检测到 SM120/89 走 RTX 前端 |
-| `norm_stats not found` | 确保 checkpoint 含 `norm_stats.json`(模型 zip 已带) |
+| `norm_stats not found` | 确保 checkpoint 含 `norm_stats.json`(魔塔模型已带) |
 | 端口被占 | 换 `--port`, 并保持 client `--policy-port` 一致 |
 | 显存不足 | 检查无其他进程占 GPU (`nvidia-smi`); 模型需 16GB+ |
 | `flash_rt_fa2` 缺失 | 预编译 .so 未随镜像/仓库; 按 `vendor/FlashRT/README.md` 重新编译 |

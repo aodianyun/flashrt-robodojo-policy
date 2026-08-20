@@ -23,20 +23,22 @@
 
 | 字段 | 值 |
 |---|---|
-| 文件名 | `RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000.zip` |
-| 大小 | 12,443,251,034 字节 (12.4 GB) |
-| **MD5** | `c749512b472bc85c1a34f44d69a77c4f` |
-| 下载地址 | (待填: Hugging Face / 网盘链接) |
+| 模型仓库 | [cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000](https://www.modelscope.cn/models/cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000) |
+| 格式 | 解压目录 (Orbax checkpoint), 非 zip |
+| 下载命令 | `modelscope download --model cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 --local_dir /models/model` |
+| 大小 | ~12.4 GB (5 个权重分片, 最大 3.08 GB) |
+| 完整性 | 魔塔 `modelscope download` 自带校验 |
 
-> 上传后请在下方"下载地址"处补充链接。校验: `md5sum RoboDojo-...-30000.zip`。
+> 魔塔官方下载命令自带完整性校验, 无需额外 MD5。
 
 ### 2.2 模型内容与结构
 
-解压后目录 `RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000/`:
+下载后目录 `/models/model/`:
 
 ```
 ├── config.json                 # 模型配置
 ├── norm_stats.json             # 动作/状态归一化统计 (openpi schema)
+├── README.md                   # 模型说明
 ├── assets/arx_x5_sim/
 │   └── norm_stats.json
 └── params/                     # Orbax checkpoint 权重 (51 组)
@@ -63,7 +65,7 @@
 
 | 方式 | 命令 | 说明 |
 |---|---|---|
-| **Docker (推荐)** | `bash docker/deploy_docker.sh --model-zip <zip> --port 3101` | 镜像内置预编译内核, 快速 |
+| **Docker (推荐)** | `bash docker/deploy_docker.sh --model-dir <目录> --port 3101` | 镜像内置预编译内核, 快速 |
 | 裸机 | `bash vendor/xp_lib/XPolicyLab/policy/goai_flashrt/setup_eval_policy_server.sh --checkpoint <dir> --port 3101` | 需 Python 3.12 + CUDA 13 |
 | 包装脚本 | `bash server/start_server.sh --checkpoint <dir> --port 3101 --hardware auto` | |
 
@@ -187,12 +189,16 @@ flashrt-robodojo-policy/
 ## 7. 模型打包复现
 
 ```bash
-# 从源模型目录生成参赛 zip + md5
-bash scripts/package_model.sh /path/to/model_dir /output/dir
+# 准备模型目录 (params + config + norm_stats + assets)
+# 上传到魔塔:
+export MODELSCOPE_TOKEN=ms-xxx
+bash scripts/upload_model_modelscope.sh \
+  --model-id cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000 \
+  --src /path/to/model_dir
 ```
 
 ## 8. 变更记录
 
 | 日期 | 内容 |
 |---|---|
-| 2026-08-20 | 打包 30000 模型 (MD5 `c749512b472bc85c1a34f44d69a77c4f`), 完成 Docker 部署 + 参赛文档 |
+| 2026-08-20 | 模型托管至魔塔社区 `cpadyun/RoboDojo-goai2026-arx_x5-joint-0-pi05-flashrt-30000`, 完成 Docker 部署 + 参赛文档 |
