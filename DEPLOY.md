@@ -91,16 +91,20 @@ docker run --gpus all --shm-size=8g -p 3101:3101 \
 
 ## 评测端连接 (RoboDojo 端)
 
+批量评测 12 个任务 (每任务 5 次):
+
 ```bash
 bash scripts/robodojo.sh client \
-  --policy-dir XPolicyLab/policy/goai_flashrt \
-  --task stack_bowls \
+  --policy-name goai_flashrt \
   --policy-host <SERVER_IP> \
   --policy-port 3101 \
   --action-type joint \
   --ckpt goai_stack \
-  --eval-num 10
+  --eval-num 5 \
+  --only stack_bowls,push_T,pack_objects_into_box,fold_clothes,hang_mugs,sweep_blocks,pour_liquid_into_cup,make_toast,arrange_largest_number,sort_nesting_dolls_by_size,store_laptop_and_headphones,stack_blocks
 ```
+
+> 省略 `--task` 即进入批量模式。单任务评测加 `--task stack_bowls` 即可。
 
 评测端在容器内时, `--policy-host` 用 `host.docker.internal` (加 `--add-host=host.docker.internal:host-gateway`)。
 

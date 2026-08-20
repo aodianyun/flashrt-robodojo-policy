@@ -25,17 +25,17 @@ INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0
 
 > 镜像已内置代码 + 内核 + 模型, 拉取即用, 无需构建或下载模型。
 
-### 2. 评测端命令 (RoboDojo 端)
+### 2. 评测端命令 (RoboDojo 端, 12 任务批量)
 
 ```bash
 bash scripts/robodojo.sh client \
-  --policy-dir XPolicyLab/policy/goai_flashrt \
-  --task stack_bowls \
+  --policy-name goai_flashrt \
   --policy-host <SERVER_IP> \
   --policy-port 3101 \
   --action-type joint \
   --ckpt goai_stack \
-  --eval-num 10
+  --eval-num 5 \
+  --only stack_bowls,push_T,pack_objects_into_box,fold_clothes,hang_mugs,sweep_blocks,pour_liquid_into_cup,make_toast,arrange_largest_number,sort_nesting_dolls_by_size,store_laptop_and_headphones,stack_blocks
 ```
 
 ## 环境要求

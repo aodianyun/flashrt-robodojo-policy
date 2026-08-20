@@ -66,15 +66,33 @@ modelscope download \
 
 ## 4. 评测命令 (RoboDojo 端)
 
+### 批量评测 (12 个指定任务, 每任务 5 次)
+
 ```bash
 bash scripts/robodojo.sh client \
-  --policy-dir XPolicyLab/policy/goai_flashrt \
-  --task stack_bowls \
+  --policy-name goai_flashrt \
   --policy-host <SERVER_IP> \
   --policy-port 3101 \
   --action-type joint \
   --ckpt goai_stack \
-  --eval-num 10
+  --eval-num 5 \
+  --only stack_bowls,push_T,pack_objects_into_box,fold_clothes,hang_mugs,sweep_blocks,pour_liquid_into_cup,make_toast,arrange_largest_number,sort_nesting_dolls_by_size,store_laptop_and_headphones,stack_blocks
+```
+
+> 省略 `--task` 即进入批量模式; 上述 `--only` 为赛事指定的 12 个任务。
+> `--eval-num 5` 为每个任务评测 5 次。
+
+### 单任务评测
+
+```bash
+bash scripts/robodojo.sh client \
+  --policy-name goai_flashrt \
+  --policy-host <SERVER_IP> \
+  --policy-port 3101 \
+  --task stack_bowls \
+  --action-type joint \
+  --ckpt goai_stack \
+  --eval-num 5
 ```
 
 参数一致性:
