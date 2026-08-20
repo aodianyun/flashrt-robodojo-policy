@@ -84,8 +84,8 @@ INFO:client_server.ws.model_server:websocket policy server listening on ws://0.0
 # 构建 (需 CUDA 工具链主机)
 docker build --build-arg GPU_ARCH=120 -t flashrt-goai-robodojo-wsserver:v1.2 .
 
-# 运行
-docker run --gpus all --shm-size=8g -p 3101:3101 \
+# 运行 (--rm 容器退出后自动清理)
+docker run --rm --gpus all --shm-size=8g -p 3101:3101 \
   flashrt-goai-robodojo-wsserver:v1.2
 ```
 

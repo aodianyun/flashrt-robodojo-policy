@@ -13,7 +13,7 @@
 ### 1. 运行策略服务器
 
 ```bash
-docker run --gpus all --shm-size=8g -p 3101:3101 \
+docker run --rm --gpus all --shm-size=8g -p 3101:3101 \
   registry.cn-hangzhou.aliyuncs.com/adpub/flashrt-goai-robodojo-wsserver:v1.2
 ```
 
